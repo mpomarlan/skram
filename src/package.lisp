@@ -1,4 +1,4 @@
- ;;;
+;;;
 ;;; Copyright (c) 2018, Mihai Pomarlan <pomarlan@uni-bremen.de>
 ;;; All rights reserved.
 ;;;
@@ -38,5 +38,10 @@
     #:get-parses
     #:call-wccg
     #:add-object-at-designator
+    #:execution-context
+    #:scene-setup
+    #:tasks
+    #:task
+    #:location-resolvers
    ))
 

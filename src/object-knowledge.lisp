@@ -46,4 +46,69 @@
                                                               ("gs-PathRepresentingExternal" . :from)
                                                               ("gs-Proximal" . :near)))
 
+(defun base-footprint-pose (&optional (robot 'cram-pr2-description:pr2))
+  (btr:pose (gethash "base_footprint" (btr:links (btr:object btr:*current-bullet-world* robot)))))
+
+(defun map-pose->footprint-pose (map-pose)
+  (let* ((tr (cl-tf:transform* (cl-tf:transform-inv (cl-tf:pose->transform (base-footprint-pose)))
+                               (cl-tf:pose->transform map-pose))))
+    (cl-tf:make-pose-stamped "base_footprint" 0.0
+                             (cl-tf:translation tr)
+                             (cl-tf:rotation tr))))
+
+(defun bullet-object (world object-name)
+  (if (listp object-name)
+    (let* ((whole (first object-name))
+           (part (second object-name))
+           (whole (btr:object world whole)))
+      (when whole
+        (gethash (roslisp-utilities:rosify-underscores-lisp-name part)
+                 (btr:links whole))))
+    (btr:object world object-name)))
+
+(defun bullet-name (object)
+  (cond
+    ((typep object 'btr:rigid-body)
+      (let* ((name (mapcar (lambda (s)
+                             (roslisp-utilities:lispify-ros-underscore-name s :keyword))
+                           (split-sequence:split-sequence #\. (format nil "~a" (btr:name object))))))
+        (if (< 1 (length name))
+          name
+          (car name))))
+    ((typep object 'btr:item)
+      (btr:name object))
+    (T nil)))
+
+(defun bullet-pose (object)
+  (cl-tf:ensure-pose-stamped (btr:pose object) "map" 0))
+
+(defmethod desig:resolve-designator ((desig desig:object-designator) (role (eql :add-name)))
+  (let* ((type (desig:desig-prop-value desig :type))
+         (name (desig:desig-prop-value desig :name))
+         (part-of (desig:desig-prop-value desig :part-of))
+         (urdf-name (desig:desig-prop-value desig :urdf-name)))
+    (cond
+      (name 
+        (if (listp name)
+          (desig:copy-designator desig)
+          (let* ((?object (desig:copy-designator desig))
+                 (pose (bullet-pose (bullet-object btr:*current-bullet-world* name)))
+                 (pose (map-pose->footprint-pose pose)))
+            (with-slots ((data desig::data)) ?object
+              (setf data (make-instance 'desig:object-designator-data :pose pose :object-identifier name)))
+            (setf (gethash name btr-belief::*object-identifier-to-instance-mappings*) name)
+            ?object)))
+      ((and part-of urdf-name)
+        (when (bullet-object btr:*current-bullet-world* `(,part-of ,urdf-name))
+          (desig:copy-designator desig :new-description `((:name (,part-of ,urdf-name))))))
+      (type
+        (let* ((objects (remove-if #'null
+                                   (mapcar (lambda (object)
+                                             (when (and (typep object 'btr:item) (member type (btr::item-types object)))
+                                               object))
+                                           (btr:objects btr:*current-bullet-world*))))
+               (object (car objects)))
+          (when object
+            (desig:reference (desig:copy-designator desig :new-description `((:name ,(bullet-name object)))) :add-name))))
+      (T nil))))
 

@@ -29,6 +29,44 @@
 
 (in-package :skram)
 
+        ;; ground instrument and objects to transport, build-up a list
+        ;; split list into: objects already on the instrument, objects yet to place there[, objects already transported]
+        ;; while already-on-instrument and yet-to-place,
+        ;;   test for space on instrument:
+        ;;     Y: check that instrument is at a location such that the free location is reachable, and so is the object yet to pick
+        ;;       Y: grab the object, place it on the instrument
+        ;;       N: bring the instrument near the object to pick
+        ;;     N: check that instrument is at a location such that it is reachable, but so is a target location
+        ;;       Y: grab an object, place it at the target location
+        ;;       N: bring the instrument near to the target location
+
+(cpl-impl:def-cram-function schematic-gather (?actees-yet-to-gather ?actees-yet-to-place ?source-designator ?destination-designator ?instrument-designator)
+  (let* ((?actee (car ?actees-yet-to-gather))
+         (?actees-yet-to-gather (cdr ?actees-yet-to-gather))
+         (?location-on-instrument (when ?actee
+                                    (desig:a location (for ?actee) (on ?instrument-designator)))))
+    (if (and ?location-on-instrument (resolvable-location ?location-on-instrument))
+      (let* ((?instrument-target-location (desig:a location (near ?actee) (for ?instrument-designator))))
+        (unless (object-at-location ?instrument-designator ?instrument-target-location)
+          (schematic-transport ?instrument-designator nil ?instrument-target-location nil))
+        (schematic-transport ?actee ?source-designator (desig:a location (on ?instrument-designator) (for ?actee)) nil)
+        (schematic-gather ?actees-yet-to-gather (cons ?actee ?actees-yet-to-place) ?source-designator ?destination-designator ?instrument-designator))
+      (when ?actees-yet-to-place
+        (schematic-place ?actees-yet-to-gather ?actees-yet-to-place ?source-designator ?destination-designator ?instrument-designator)))))
+
+(cpl-impl:def-cram-function schematic-place (?actees-yet-to-gather ?actees-yet-to-place ?source-designator ?destination-designator ?instrument-designator)
+  (if ?actees-yet-to-place
+    (let* ((?actee (car ?actees-yet-to-place))
+           (?location (desig:copy-designator ?destination-designator :new-description `(:for ,?actee)))
+           (?location (desig:reference ?location))
+           (?actees-yet-to-place (cdr ?actees-yet-to-place)))
+      (unless (object-at-location ?instrument-designator (desig:a location (near ?location) (for ?instrument-designator)))
+        (schematic-transport ?instrument-designator nil (desig:a location (near ?location) (for ?instrument-designator)) nil)
+      (schematic-transport ?actee nil ?location nil)
+      (schematic-place ?actees-yet-to-gather ?actees-yet-to-place ?source-designator ?destination-designator ?instrument-designator))
+    (when ?actees-yet-to-gather
+      (schematic-gather ?actees-yet-to-gather ?actees-yet-to-place ?source-designator ?destination-designator ?instrument-designator))))
+
 (cpl-impl:def-cram-function schematic-transport (?actee-designator ?source-designator ?destination-designator ?instrument-designator)
                ;;(desig:an action
                ;;          (type transporting)
@@ -42,10 +80,99 @@
                ;;         (of ?object-designator))
                ;;(desig:a location
                ;;         (pose ?pose-stamped))
-  (format t "SCHEMATIC-TRANSPORT for ~a from ~a to ~a using ~a~%" ?actee-designator ?source-designator ?destination-designator ?instrument-designator))
+  (format t "SCHEMATIC-TRANSPORT for ~a from ~a to ~a using ~a~%" ?actee-designator ?source-designator ?destination-designator ?instrument-designator)
+  (let* ((?actees (localized-actee-at-source ?actee-designator ?source-designator)))
+    (if ?instrument-designator
+      (let* ((?instrument-designator (desig:reference ?instrument-designator :add-name))
+             (?actees (split-objects-by-location-designator (?actees (desig:a location (on ?instrument-designator)))))
+             (?actees-yet-to-gather (second ?actees))
+             (?actees-yet-to-place (first ?actees)))
+        (schematic-gather ?actees-yet-to-gather ?actees-yet-to-place ?source-designator ?destination-designator ?instrument-designator))
+      (mapcar (lambda (?actee)
+                (let* ((?destination-designator (desig:copy-designator ?destination-designator :new-description `((:for ,?actee)))))
+                  (exe:perform (desig:an action
+                                         (type transporting)
+                                         (object ?actee)
+                                         (target ?destination-designator)))))
+              ?actees))))
+
+(defun schematic-ingestion-internal (?container ?source)
+  ;(exe:perform (desig:a motion
+  ;                      (type going)
+  ;                      (target (desig:a location
+  ;                                       (reachable-for cram-pr2-description:pr2)
+  ;                                       (arm right)
+  ;                                       (object (desig:an object (name ?container)))))))
+  (exe:perform (desig:an action
+                         (type searching)
+                         (object ?container)
+                         (location ?source)))
+  (exe:perform (desig:a motion
+                        (type moving-tcp)
+                        (right-target (desig:a location
+                                               (on ?container))))))
 
 (cpl-impl:def-cram-function schematic-ingesting (?actee-designator ?source-designator ?instrument-designator)
-  (format t "SCHEMATIC-INGESTING of ~a from ~a using ~a~%" ?actee-designator ?source-designator ?instrument-designator))
+  (format t "SCHEMATIC-INGESTING of ~a from ~a using ~a~%" ?actee-designator ?source-designator ?instrument-designator)
+  ;; TODO: a bit of a cheat here because we cannot yet load several PR2s. As a result, this plan already assumes two agents, and implements a "puppeteering" of one by the other
+  (declare (ignore ?instrument-designator))
+  (let* ((containers (localized-actee-at-source ?actee-designator ?source-designator))
+         (?container-1 (first containers))
+         (?container-2 (second containers)))
+    (spawn-puppet-pr2 :pr2-2)
+    (schematic-ingestion-internal ?container-1 ?source-designator)
+    (puppetteer-pr2 'cram-pr2-description:pr2 :pr2-2)
+    (schematic-ingestion-internal ?container-2 ?source-designator)))
 
 (cpl-impl:def-cram-function schematic-material-removal (?material-designator ?support-designator ?source-designator ?material-destination-designator ?support-destination-designator ?instrument-designator)
-  (format t "SCHEMATIC-MATERIAL-REMOVAL of ~a on ~a from ~a with ~a, and put the material at ~a and the support at ~a" ?material-designator ?support-designator ?source-designator ?instrument-designator ?material-destination-designator ?support-destination-designator))
+  (format t "SCHEMATIC-MATERIAL-REMOVAL of ~a on ~a from ~a with ~a, and put the material at ~a and the support at ~a" ?material-designator ?support-designator ?source-designator ?instrument-designator ?material-destination-designator ?support-destination-designator)
+  (let* ((?robot 'cram-pr2-description:pr2)
+         (?objects (localized-actee-at-source ?support-designator ?source-designator))
+         (?actee-pose (cl-tf:make-pose-stamped (agent-link "arms-base") 0.0
+                                               (cl-tf:make-3d-vector 0.25 0 0)
+                                               (cl-tf:euler->quaternion :ax (/ pi -4))))
+         (?wash-pose-1 (cl-tf:make-pose-stamed (agent-link "arms-base") 0.0
+                                               (cl-tf:make-3d-vector 0.25 0.05 0.05)
+                                               (cl-tf:euler->quaternion :az (/ pi 2) :ay (/pi 4))))
+         (?wash-pose-2 (cl-tf:make-pose-stamed (agent-link "arms-base") 0.0
+                                               (cl-tf:make-3d-vector 0.25 -0.05 -0.05)
+                                               (cl-tf:euler->quaternion :az (/ pi 2) :ay (/pi 4)))))
+    (mapcar (lambda (?object)
+              (let* ((?placing-location (desig:copy-designator ?support-destination-designator :new-description `(:for ,?object))))
+                (exe:perform (desig:a motion
+                                      (type going)
+                                      (target (desig:a location
+                                                       (reachable-for ?robot)
+                                                       (arm right)
+                                                       (object ?object)))))
+                (exe:perform (desig:an action
+                                       (type picking-up)
+                                       (arm right)
+                                       (object ?object)))
+                (exe:perform (desig:a motion
+                                      (type moving-tcp)
+                                      (right-target (desig:a location
+                                                             (pose ?actee-pose)))))
+                (mapcar (lambda (iteration)
+                          (declare (ignore iteration))
+                          (exe:perform (desig:a motion
+                                                (type moving-tcp)
+                                                (left-target (desig:a location
+                                                                      (pose ?wash-pose-1)))))
+                          (exe:perform (desig:a motion
+                                                (type moving-tcp)
+                                                (left-target (desig:a location
+                                                                      (pose ?wash-pose-2))))))
+                        (alexandria:iota 5))
+                (exe:perform (desig:a motion
+                                      (type going)
+                                      (target (desig:a location
+                                                       (reachable-for ?robot)
+                                                       (arm right)
+                                                       (location ?placing-location)))))
+                (exe:perform (desig:an action
+                                       (type placing)
+                                       (arm right)
+                                       (target ?placing-location))))
+            ?objects)))
+
