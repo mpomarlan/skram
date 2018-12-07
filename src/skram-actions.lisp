@@ -103,10 +103,12 @@
   ;                                       (reachable-for cram-pr2-description:pr2)
   ;                                       (arm right)
   ;                                       (object (desig:an object (name ?container)))))))
-  (exe:perform (desig:an action
-                         (type searching)
-                         (object ?container)
-                         (location ?source)))
+  (let* ((?pose (bullet-pose (bullet-object (desig:desig-prop-value ?container :name)))))
+    (exe:perform (desig:an action
+                           (type going)
+                           (target (desig:a location (reachable-for pr2)
+                                                     (arm right)
+                                                     (location (desig:a location (pose ?pose))))))))
   (exe:perform (desig:a motion
                         (type moving-tcp)
                         (right-target (desig:a location
@@ -138,13 +140,15 @@
                                                (cl-tf:make-3d-vector 0.25 -0.05 -0.05)
                                                (cl-tf:euler->quaternion :az (/ pi 2) :ay (/pi 4)))))
     (mapcar (lambda (?object)
-              (let* ((?placing-location (desig:copy-designator ?support-destination-designator :new-description `(:for ,?object))))
+              (let* ((?object-pose (bullet-pose (bullet-object (desig:desig-prop-value ?object :name))))
+                     (?placing-location (desig:copy-designator ?support-destination-designator :new-description `(:for ,?object)))
+                     (?placing-pose (desig:reference ?placing-location)))
                 (exe:perform (desig:a motion
                                       (type going)
                                       (target (desig:a location
                                                        (reachable-for ?robot)
                                                        (arm right)
-                                                       (object ?object)))))
+                                                       (location (desig:a location (pose ?object-pose)))))))
                 (exe:perform (desig:an action
                                        (type picking-up)
                                        (arm right)
@@ -169,10 +173,10 @@
                                       (target (desig:a location
                                                        (reachable-for ?robot)
                                                        (arm right)
-                                                       (location ?placing-location)))))
+                                                       (location (desig:a location (pose ?placing-pose)))))))
                 (exe:perform (desig:an action
                                        (type placing)
                                        (arm right)
-                                       (target ?placing-location))))
+                                       (target (desig:a location (pose ?placing-pose)))))))
             ?objects)))
 
