@@ -61,7 +61,7 @@
            (?location (desig:reference ?location))
            (?actees-yet-to-place (cdr ?actees-yet-to-place)))
       (unless (object-at-location ?instrument-designator (desig:a location (near ?location) (for ?instrument-designator)))
-        (schematic-transport ?instrument-designator nil (desig:a location (near ?location) (for ?instrument-designator)) nil)
+        (schematic-transport ?instrument-designator nil (desig:a location (near ?location) (for ?instrument-designator)) nil))
       (schematic-transport ?actee nil ?location nil)
       (schematic-place ?actees-yet-to-gather ?actees-yet-to-place ?source-designator ?destination-designator ?instrument-designator))
     (when ?actees-yet-to-gather
@@ -84,7 +84,7 @@
   (let* ((?actees (localized-actee-at-source ?actee-designator ?source-designator)))
     (if ?instrument-designator
       (let* ((?instrument-designator (desig:reference ?instrument-designator :add-name))
-             (?actees (split-objects-by-location-designator (?actees (desig:a location (on ?instrument-designator)))))
+             (?actees (split-objects-by-location-designator ?actees (desig:a location (on ?instrument-designator))))
              (?actees-yet-to-gather (second ?actees))
              (?actees-yet-to-place (first ?actees)))
         (schematic-gather ?actees-yet-to-gather ?actees-yet-to-place ?source-designator ?destination-designator ?instrument-designator))
@@ -96,14 +96,15 @@
                                          (target ?destination-designator)))))
               ?actees))))
 
-(defun schematic-ingestion-internal (?container ?source)
+(defun schematic-ingestion-internal (?container ?instrument-designator)
+  (declare (ignore ?instrument-designator))
   ;(exe:perform (desig:a motion
   ;                      (type going)
   ;                      (target (desig:a location
   ;                                       (reachable-for cram-pr2-description:pr2)
   ;                                       (arm right)
   ;                                       (object (desig:an object (name ?container)))))))
-  (let* ((?pose (bullet-pose (bullet-object (desig:desig-prop-value ?container :name)))))
+  (let* ((?pose (bullet-pose (bullet-object btr:*current-bullet-world* (desig:desig-prop-value ?container :name)))))
     (exe:perform (desig:an action
                            (type going)
                            (target (desig:a location (reachable-for pr2)
@@ -117,14 +118,13 @@
 (cpl-impl:def-cram-function schematic-ingesting (?actee-designator ?source-designator ?instrument-designator)
   (format t "SCHEMATIC-INGESTING of ~a from ~a using ~a~%" ?actee-designator ?source-designator ?instrument-designator)
   ;; TODO: a bit of a cheat here because we cannot yet load several PR2s. As a result, this plan already assumes two agents, and implements a "puppeteering" of one by the other
-  (declare (ignore ?instrument-designator))
   (let* ((containers (localized-actee-at-source ?actee-designator ?source-designator))
          (?container-1 (first containers))
          (?container-2 (second containers)))
     (spawn-puppet-pr2 :pr2-2)
-    (schematic-ingestion-internal ?container-1 ?source-designator)
+    (schematic-ingestion-internal ?container-1 ?instrument-designator)
     (puppetteer-pr2 'cram-pr2-description:pr2 :pr2-2)
-    (schematic-ingestion-internal ?container-2 ?source-designator)))
+    (schematic-ingestion-internal ?container-2 ?instrument-designator)))
 
 (cpl-impl:def-cram-function schematic-material-removal (?material-designator ?support-designator ?source-designator ?material-destination-designator ?support-destination-designator ?instrument-designator)
   (format t "SCHEMATIC-MATERIAL-REMOVAL of ~a on ~a from ~a with ~a, and put the material at ~a and the support at ~a" ?material-designator ?support-designator ?source-designator ?instrument-designator ?material-destination-designator ?support-destination-designator)
@@ -133,14 +133,14 @@
          (?actee-pose (cl-tf:make-pose-stamped (agent-link "arms-base") 0.0
                                                (cl-tf:make-3d-vector 0.25 0 0)
                                                (cl-tf:euler->quaternion :ax (/ pi -4))))
-         (?wash-pose-1 (cl-tf:make-pose-stamed (agent-link "arms-base") 0.0
-                                               (cl-tf:make-3d-vector 0.25 0.05 0.05)
-                                               (cl-tf:euler->quaternion :az (/ pi 2) :ay (/pi 4))))
-         (?wash-pose-2 (cl-tf:make-pose-stamed (agent-link "arms-base") 0.0
-                                               (cl-tf:make-3d-vector 0.25 -0.05 -0.05)
-                                               (cl-tf:euler->quaternion :az (/ pi 2) :ay (/pi 4)))))
+         (?wash-pose-1 (cl-tf:make-pose-stamped (agent-link "arms-base") 0.0
+                                                (cl-tf:make-3d-vector 0.25 0.05 0.05)
+                                                (cl-tf:euler->quaternion :az (/ pi 2) :ay (/ pi 4))))
+         (?wash-pose-2 (cl-tf:make-pose-stamped (agent-link "arms-base") 0.0
+                                                (cl-tf:make-3d-vector 0.25 -0.05 -0.05)
+                                                (cl-tf:euler->quaternion :az (/ pi 2) :ay (/ pi 4)))))
     (mapcar (lambda (?object)
-              (let* ((?object-pose (bullet-pose (bullet-object (desig:desig-prop-value ?object :name))))
+              (let* ((?object-pose (bullet-pose (bullet-object btr:*current-bullet-world* (desig:desig-prop-value ?object :name))))
                      (?placing-location (desig:copy-designator ?support-destination-designator :new-description `(:for ,?object)))
                      (?placing-pose (desig:reference ?placing-location)))
                 (exe:perform (desig:a motion

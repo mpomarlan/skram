@@ -29,10 +29,11 @@
 
 (in-package :skram)
 
-(defun:resolvable-location (?location)
+(defun resolvable-location (?location)
   (cpl-impl:with-failure-handling
-    ((desig:designator-error e)
-      (cpl-impl:return nil))
+    ((desig:designator-error (e)
+      (declare (ignore e))
+      (cpl-impl::return nil)))
     (desig:reference ?location)))
 
 ;;(object-at-location ?instrument-designator ?instrument-target-location)
@@ -82,7 +83,7 @@
                (?relatum (if (desig:desig-prop-value ?relatum :name)
                            ?relatum
                            (desig:reference ?relatum :add-name)))
-               (?relatum (bullet-object *btr:current-bullet-world* (desig:desig-prop-value ?relatum :name)))
+               (?relatum (bullet-object btr:*current-bullet-world* (desig:desig-prop-value ?relatum :name)))
                (?supported (btr::list-supported-objects btr:*current-bullet-world* ?relatum)))
           (member ?object ?supported))))))
 
