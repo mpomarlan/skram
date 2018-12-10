@@ -29,6 +29,20 @@
 
 (in-package :skram)
 
+(defun interpret-spatial-relation (?designator &optional (role :manipulation-location))
+  (cond
+    ((equal role :manipulation-location)
+      (cond
+        ((or (desig:desig-prop-value ?designator :on) (desig:desig-prop-value ?designator :in))
+          ?designator)
+        ((or (desig:desig-prop-value ?designator :from) (desig:desig-prop-value ?designator :towards))
+          (let* ((?relatum (or (desig:desig-prop-value ?designator :from) (desig:desig-prop-value ?designator :towards))))
+            (desig:copy-designator ?designator :new-description `((:on , ?relatum)))))
+        (T
+          ?designator)))
+    (T
+      ?designator)))
+
 (defun find-highest-object (?objects height &optional (highest nil))
   (let* ((?object (car ?objects))
          (?objects (cdr ?objects))

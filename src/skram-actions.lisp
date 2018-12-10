@@ -57,7 +57,7 @@
 (cpl-impl:def-cram-function schematic-place (?actees-yet-to-gather ?actees-yet-to-place ?source-designator ?destination-designator ?instrument-designator)
   (if ?actees-yet-to-place
     (let* ((?actee (car ?actees-yet-to-place))
-           (?location (desig:copy-designator ?destination-designator :new-description `(:for ,?actee)))
+           (?location (desig:copy-designator ?destination-designator :new-description `((:for ,?actee))))
            (?location (desig:reference ?location))
            (?actees-yet-to-place (cdr ?actees-yet-to-place)))
       (unless (object-at-location ?instrument-designator (desig:a location (near ?location) (for ?instrument-designator)))
@@ -81,7 +81,9 @@
                ;;(desig:a location
                ;;         (pose ?pose-stamped))
   (format t "SCHEMATIC-TRANSPORT for ~a from ~a to ~a using ~a~%" ?actee-designator ?source-designator ?destination-designator ?instrument-designator)
-  (let* ((?actees (localized-actee-at-source ?actee-designator ?source-designator)))
+  (let* ((?source-designator (interpret-spatial-relation ?source-designator))
+         (?destination-designator (interpret-spatial-relation ?destination-designator))
+         (?actees (localized-actee-at-source ?actee-designator ?source-designator)))
     (if ?instrument-designator
       (let* ((?instrument-designator (desig:reference ?instrument-designator :add-name))
              (?actees (split-objects-by-location-designator ?actees (desig:a location (on ?instrument-designator))))
@@ -118,7 +120,8 @@
 (cpl-impl:def-cram-function schematic-ingesting (?actee-designator ?source-designator ?instrument-designator)
   (format t "SCHEMATIC-INGESTING of ~a from ~a using ~a~%" ?actee-designator ?source-designator ?instrument-designator)
   ;; TODO: a bit of a cheat here because we cannot yet load several PR2s. As a result, this plan already assumes two agents, and implements a "puppeteering" of one by the other
-  (let* ((containers (localized-actee-at-source ?actee-designator ?source-designator))
+  (let* ((?source-designator (interpret-spatial-relation ?source-designator))
+         (containers (localized-actee-at-source ?actee-designator ?source-designator))
          (?container-1 (first containers))
          (?container-2 (second containers)))
     (spawn-puppet-pr2 :pr2-2)
@@ -128,7 +131,10 @@
 
 (cpl-impl:def-cram-function schematic-material-removal (?material-designator ?support-designator ?source-designator ?material-destination-designator ?support-destination-designator ?instrument-designator)
   (format t "SCHEMATIC-MATERIAL-REMOVAL of ~a on ~a from ~a with ~a, and put the material at ~a and the support at ~a" ?material-designator ?support-designator ?source-designator ?instrument-designator ?material-destination-designator ?support-destination-designator)
-  (let* ((?robot 'cram-pr2-description:pr2)
+  (let* ((?source-designator (interpret-spatial-relation ?source-designator))
+         (?support-destination-designator (interpret-spatial-relation ?support-destination-designator))
+         (?material-destination-designator (interpret-spatial-relation ?material-destination-designator))
+         (?robot 'cram-pr2-description:pr2)
          (?objects (localized-actee-at-source ?support-designator ?source-designator))
          (?actee-pose (cl-tf:make-pose-stamped (agent-link "arms-base") 0.0
                                                (cl-tf:make-3d-vector 0.25 0 0)
@@ -141,7 +147,7 @@
                                                 (cl-tf:euler->quaternion :az (/ pi 2) :ay (/ pi 4)))))
     (mapcar (lambda (?object)
               (let* ((?object-pose (bullet-pose (bullet-object btr:*current-bullet-world* (desig:desig-prop-value ?object :name))))
-                     (?placing-location (desig:copy-designator ?support-destination-designator :new-description `(:for ,?object)))
+                     (?placing-location (desig:copy-designator ?support-destination-designator :new-description `((:for ,?object))))
                      (?placing-pose (desig:reference ?placing-location)))
                 (exe:perform (desig:a motion
                                       (type going)
