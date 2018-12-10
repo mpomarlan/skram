@@ -35,8 +35,8 @@
                              (:table . :kitchen-island)))
 (defparameter *owl-names* nil)
 
-(defparameter *obj-masses* '((:cup . 0.2)))
-(defparameter *obj-colors* '((:cup . (1 0 0))))
+(defparameter *obj-masses* '((:cup . 0.2) (:plate . 0.4)))
+(defparameter *obj-colors* '((:cup . (1 0 0)) (:plate . (1 0 0))))
 
 (defparameter *CCG-Object-Type->CRAM-Object-Type* '(("slm-Cup" . :cup)
                                                     ("slm-Table" . :table)
@@ -82,7 +82,15 @@
     (T nil)))
 
 (defun bullet-pose (object)
-  (cl-tf:ensure-pose-stamped (btr:pose object) "map" 0))
+  (cond
+    ((equal object nil)
+      nil)
+    ((or (symbolp object) (keywordp object) (listp object))
+      (bullet-pose (bullet-object btr:*current-bullet-world* object)))
+    ((typep object 'btr:item)
+      (cl-tf:ensure-pose-stamped (btr:pose object) "map" 0))
+    ((typep object 'btr:robot-object)
+      (cl-tf:ensure-pose-stamped (btr:pose (gethash "base_footprint" (btr:links object))) "map" 0))))
 
 (defmethod desig:resolve-designator ((desig desig:object-designator) (role (eql :add-name)))
   (let* ((type (desig:desig-prop-value desig :type))

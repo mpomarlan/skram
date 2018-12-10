@@ -82,4 +82,6 @@
      (:file "skram-argument-parse" :depends-on ("object-knowledge" "location-knowledge"))
      (:file "skram-actions" :depends-on ("skram-argument-parse"))
      (:file "skram-action-designators" :depends-on ("skram-actions"))
+     (:file "execution-context" :depends-on ("skram-action-designators"))
+     (:file "tests" :depends-on ("execution-context"))
      ))))

@@ -108,7 +108,7 @@
                              (mapcar (lambda (object)
                                        (if (or (and (not ?actee-name) (not ?actee-type))
                                                (and ?actee-name (equal ?actee-name (btr:name object)))
-                                               (and (not ?actee-name) ?actee-type (member ?actee-type (btr::item-types object))))
+                                               (and (not ?actee-name) ?actee-type (typep object 'btr:item) (member ?actee-type (btr::item-types object))))
                                          object
                                          nil))
                                (btr:objects btr:*current-bullet-world*))))

@@ -112,10 +112,15 @@
                            (target (desig:a location (reachable-for pr2)
                                                      (arm right)
                                                      (location (desig:a location (pose ?pose))))))))
-  (exe:perform (desig:a motion
-                        (type moving-tcp)
-                        (right-target (desig:a location
-                                               (on ?container))))))
+  (let* ((?pose (desig:reference (desig:a location (on ?container))))
+         (?pose (map-pose->footprint-pose ?pose))
+         (?pose (cl-tf:make-pose-stamped (cl-tf:frame-id ?pose) (cl-tf:stamp ?pose)
+                                         (cl-tf:v+ (cl-tf:origin ?pose) (cl-tf:make-3d-vector -0.05 0 0.07))
+                                         (cl-tf:euler->quaternion :az 0.085 :ay (/ pi 16)))))
+    (exe:perform (desig:a motion
+                          (type moving-tcp)
+                          (right-target (desig:a location
+                                                 (pose ?pose)))))))
 
 (cpl-impl:def-cram-function schematic-ingesting (?actee-designator ?source-designator ?instrument-designator)
   (format t "SCHEMATIC-INGESTING of ~a from ~a using ~a~%" ?actee-designator ?source-designator ?instrument-designator)

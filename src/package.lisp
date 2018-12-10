@@ -38,6 +38,7 @@
     #:get-parses
     #:call-wccg
     #:add-object-at-designator
+    #:execute-context
     #:execution-context
     #:scene-setup
     #:tasks

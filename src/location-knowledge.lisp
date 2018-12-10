@@ -35,8 +35,8 @@
       (cond
         ((or (desig:desig-prop-value ?designator :on) (desig:desig-prop-value ?designator :in))
           ?designator)
-        ((or (desig:desig-prop-value ?designator :from) (desig:desig-prop-value ?designator :towards))
-          (let* ((?relatum (or (desig:desig-prop-value ?designator :from) (desig:desig-prop-value ?designator :towards))))
+        ((or (desig:desig-prop-value ?designator :from) (desig:desig-prop-value ?designator :towards) (desig:desig-prop-value ?designator :at))
+          (let* ((?relatum (or (desig:desig-prop-value ?designator :from) (desig:desig-prop-value ?designator :towards) (desig:desig-prop-value ?designator :at))))
             (desig:copy-designator ?designator :new-description `((:on , ?relatum)))))
         (T
           ?designator)))

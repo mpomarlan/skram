@@ -1,0 +1,3 @@
+<launch>
+  <node name="map_server" pkg="map_server" type="map_server" args="$(find skram)/maps/map-2018-12-skram.yaml" />
+</launch>
