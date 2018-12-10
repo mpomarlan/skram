@@ -29,8 +29,10 @@
 
 (in-package :skram)
 
-(defparameter *part-ofs* nil)
-(defparameter *urdf-names* nil)
+(defparameter *part-ofs* '((:sink-table . :kitchen)
+                           (:table . :kitchen)))
+(defparameter *urdf-names* '((:sink-table . :sink-area-surface)
+                             (:table . :kitchen-island)))
 (defparameter *owl-names* nil)
 
 (defparameter *obj-masses* '((:cup . 0.2)))
