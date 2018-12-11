@@ -100,18 +100,11 @@
 
 (defun schematic-ingestion-internal (?container ?instrument-designator)
   (declare (ignore ?instrument-designator))
-  ;(exe:perform (desig:a motion
-  ;                      (type going)
-  ;                      (target (desig:a location
-  ;                                       (reachable-for cram-pr2-description:pr2)
-  ;                                       (arm right)
-  ;                                       (object (desig:an object (name ?container)))))))
   (let* ((?pose (bullet-pose (bullet-object btr:*current-bullet-world* (desig:desig-prop-value ?container :name)))))
-    (exe:perform (desig:an action
-                           (type going)
-                           (target (desig:a location (reachable-for pr2)
-                                                     (arm right)
-                                                     (location (desig:a location (pose ?pose))))))))
+    (btr-utils:move-object 'cram-pr2-description:pr2
+                           (desig:reference (desig:a location (reachable-for pr2)
+                                                              (arm right)
+                                                              (location (desig:a location (pose ?pose)))))))
   (let* ((?pose (desig:reference (desig:a location (on ?container))))
          (?pose (map-pose->footprint-pose ?pose))
          (?pose (cl-tf:make-pose-stamped (cl-tf:frame-id ?pose) (cl-tf:stamp ?pose)
@@ -142,28 +135,36 @@
          (?robot 'cram-pr2-description:pr2)
          (?objects (localized-actee-at-source ?support-designator ?source-designator))
          (?actee-pose (cl-tf:make-pose-stamped (agent-link "arms-base") 0.0
-                                               (cl-tf:make-3d-vector 0.25 0 0)
-                                               (cl-tf:euler->quaternion :ax (/ pi -4))))
+                                               (cl-tf:make-3d-vector 0.55 0 1.3)
+                                               (cl-tf:euler->quaternion :ax (/ pi 4))))
          (?wash-pose-1 (cl-tf:make-pose-stamped (agent-link "arms-base") 0.0
-                                                (cl-tf:make-3d-vector 0.25 0.05 0.05)
-                                                (cl-tf:euler->quaternion :az (/ pi 2) :ay (/ pi 4))))
+                                                (cl-tf:make-3d-vector 0.55 -0.025 1.35)
+                                                (cl-tf:euler->quaternion :az (/ pi -2) :ay (/ pi 4))))
          (?wash-pose-2 (cl-tf:make-pose-stamped (agent-link "arms-base") 0.0
-                                                (cl-tf:make-3d-vector 0.25 -0.05 -0.05)
-                                                (cl-tf:euler->quaternion :az (/ pi 2) :ay (/ pi 4)))))
+                                                (cl-tf:make-3d-vector 0.55 0.025 1.25) 
+                                                (cl-tf:euler->quaternion :az (/ pi -2) :ay (/ pi 4)))))
     (mapcar (lambda (?object)
-              (let* ((?object-pose (bullet-pose (bullet-object btr:*current-bullet-world* (desig:desig-prop-value ?object :name))))
-                     (?placing-location (desig:copy-designator ?support-destination-designator :new-description `((:for ,?object))))
-                     (?placing-pose (desig:reference ?placing-location)))
-                (exe:perform (desig:a motion
-                                      (type going)
-                                      (target (desig:a location
-                                                       (reachable-for ?robot)
-                                                       (arm right)
-                                                       (location (desig:a location (pose ?object-pose)))))))
-                (exe:perform (desig:an action
-                                       (type picking-up)
-                                       (arm right)
-                                       (object ?object)))
+              (let* ((?object-name (desig:desig-prop-value ?object :name))
+                     (?object-type (desig:desig-prop-value ?object :type))
+                     (?object-pose (bullet-pose (bullet-object btr:*current-bullet-world* ?object-name))))
+                (cpl-impl:with-failure-handling
+                  ((common-fail:manipulation-pose-unreachable (e)
+                     (declare (ignore e))
+                     (cpl-impl:retry)))
+                  (btr-utils:move-object ?robot
+                                         (desig:reference (desig:a location (reachable-for pr2)
+                                                                            (arm right)
+                                                                            (location (desig:a location (pose ?object-pose))))))
+                  (let* ((?object (car (localized-actee-at-source ?object nil)))
+                         (dummy (exe:perform (desig:a motion
+                                                      (type looking)
+                                                      (target (desig:a location (pose ?object-pose))))))
+                         (?perceived-object (pp-plans:perceive ?object)))
+                    (declare (ignore dummy))
+                    (exe:perform (desig:an action
+                                           (type picking-up)
+                                           (arm right)
+                                           (object ?perceived-object)))))
                 (exe:perform (desig:a motion
                                       (type moving-tcp)
                                       (right-target (desig:a location
@@ -179,15 +180,34 @@
                                                 (left-target (desig:a location
                                                                       (pose ?wash-pose-2))))))
                         (alexandria:iota 5))
-                (exe:perform (desig:a motion
-                                      (type going)
-                                      (target (desig:a location
-                                                       (reachable-for ?robot)
-                                                       (arm right)
-                                                       (location (desig:a location (pose ?placing-pose)))))))
-                (exe:perform (desig:an action
-                                       (type placing)
-                                       (arm right)
-                                       (target (desig:a location (pose ?placing-pose)))))))
+                (pp-plans:park-arms :arm :left)
+                (cpl-impl:with-failure-handling 
+                  ((common-fail:manipulation-pose-unreachable (e)
+                     (declare (ignore e))
+                     (cpl-impl:retry))
+                   (desig:designator-error (e)
+                     (declare (ignore e))
+                     (cpl-impl:retry)))
+                  (let* ((?placing-location (desig:copy-designator ?support-destination-designator :new-description `((:for ,(desig:an object (type ?object-type))))))
+                         (?placing-pose (desig:reference ?placing-location))
+                         (?placing-pose (cl-tf:make-pose-stamped (cl-tf:frame-id ?placing-pose) (cl-tf:stamp ?placing-pose)
+                                                                 (cl-tf:v+ (cl-tf:make-3d-vector 0 0 0.4) (cl-tf:origin ?placing-pose))
+                                                                 (cl-tf:orientation ?placing-pose))))
+                    (btr-utils:move-object ?robot
+                                           (desig:reference (desig:a location (reachable-for pr2)
+                                                                              (arm right)
+                                                                              (location (desig:a location (pose ?placing-pose))))))
+                    (let* ((?placing-pose (map-pose->footprint-pose ?placing-pose))
+                           (?placing-pose (cl-tf:make-pose-stamped (cl-tf:frame-id ?placing-pose) (cl-tf:stamp ?placing-pose)
+                                                                   (cl-tf:origin ?placing-pose)
+                                                                   (cl-tf:euler->quaternion))))
+                      (exe:perform (desig:an action
+                                             (type placing)
+                                             (arm right)
+                                             (target (desig:a location (pose ?placing-pose))))))))
+                (exe:perform
+                  (desig:a motion (type moving-torso) (joint-angle 0.3)))
+                (pp-plans:park-arms)
+                ))
             ?objects)))
 

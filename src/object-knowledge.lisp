@@ -32,11 +32,12 @@
 (defparameter *part-ofs* '((:sink-table . :kitchen)
                            (:table . :kitchen)))
 (defparameter *urdf-names* '((:sink-table . :sink-area-surface)
-                             (:table . :kitchen-island)))
+                             (:table . :kitchen-island-surface)))
 (defparameter *owl-names* nil)
 
 (defparameter *obj-masses* '((:cup . 0.2) (:plate . 0.4)))
 (defparameter *obj-colors* '((:cup . (1 0 0)) (:plate . (1 0 0))))
+(defparameter *obj-grasp-types* '((:cup . :top) (:plate . :right-side)))
 
 (defparameter *CCG-Object-Type->CRAM-Object-Type* '(("slm-Cup" . :cup)
                                                     ("slm-Table" . :table)
@@ -122,3 +123,25 @@
             (desig:reference (desig:copy-designator desig :new-description `((:name ,(bullet-name object)))) :add-name))))
       (T nil))))
 
+
+(cram-object-interfaces:def-object-type-to-gripper-transforms :plate :right :left-side
+  :grasp-translation `(0.0 ,(- kr-pp::*plate-grasp-y-offset*) ,kr-pp::*plate-grasp-z-offset*)
+  :grasp-rot-matrix
+  `((0             -1 0)
+    (,(- (sin kr-pp::*plate-grasp-roll-offset*)) 0  ,(cos kr-pp::*plate-grasp-roll-offset*))
+    (,(- (cos kr-pp::*plate-grasp-roll-offset*)) 0  ,(- (sin kr-pp::*plate-grasp-roll-offset*))))
+  :pregrasp-offsets `(0.0 ,(- kr-pp::*plate-pregrasp-y-offset*) ,kr-pp::*lift-z-offset*)
+  :2nd-pregrasp-offsets `(0.0 ,(- kr-pp::*plate-pregrasp-y-offset*) ,kr-pp::*plate-2nd-pregrasp-z-offset*)
+  :lift-offsets kr-pp::*lift-offset*
+  :2nd-lift-offsets kr-pp::*lift-offset*)
+
+(cram-object-interfaces:def-object-type-to-gripper-transforms :tray :right :right-side
+  :grasp-translation `(0.0 ,(- kr-pp::*plate-grasp-y-offset*) ,kr-pp::*plate-grasp-z-offset*)
+  :grasp-rot-matrix
+  `((0             -1 0)
+    (,(- (sin kr-pp::*plate-grasp-roll-offset*)) 0  ,(cos kr-pp::*plate-grasp-roll-offset*))
+    (,(- (cos kr-pp::*plate-grasp-roll-offset*)) 0  ,(- (sin kr-pp::*plate-grasp-roll-offset*))))
+  :pregrasp-offsets `(0.0 ,(- kr-pp::*plate-pregrasp-y-offset*) ,kr-pp::*lift-z-offset*)
+  :2nd-pregrasp-offsets `(0.0 ,(- kr-pp::*plate-pregrasp-y-offset*) ,kr-pp::*plate-2nd-pregrasp-z-offset*)
+  :lift-offsets kr-pp::*lift-offset*
+  :2nd-lift-offsets kr-pp::*lift-offset*)

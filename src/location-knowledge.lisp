@@ -29,10 +29,14 @@
 
 (in-package :skram)
 
+(setf desig::*location-generator-max-retries* 500)
+
 (defun interpret-spatial-relation (?designator &optional (role :manipulation-location))
   (cond
     ((equal role :manipulation-location)
       (cond
+        ((not ?designator)
+          nil)
         ((or (desig:desig-prop-value ?designator :on) (desig:desig-prop-value ?designator :in))
           ?designator)
         ((or (desig:desig-prop-value ?designator :from) (desig:desig-prop-value ?designator :towards) (desig:desig-prop-value ?designator :at))

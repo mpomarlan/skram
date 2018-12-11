@@ -136,7 +136,7 @@
 (defun agent-link (semantic-description)
   ;; TODO: need to add some agent to skram plans, and then refer to the agent's description
   (declare (ignore semantic-description))
-  "torso_lift_link")
+  "base_footprint")
 
 ;; TODO: robot puppetteering is a bit of a hack because multiple robots at the same time are not supported
 (defun spawn-puppet-pr2 (id &optional (pose '((0 -5 0) (0 0 0 1))))

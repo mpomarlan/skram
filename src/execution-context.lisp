@@ -43,8 +43,8 @@
     (prolog:<- (location-costmap:costmap-origin -6 -6))
     (prolog:<- (location-costmap:costmap-resolution 0.04))
     (prolog:<- (location-costmap:costmap-padding 0.3))
-    (prolog:<- (location-costmap:costmap-manipulation-padding 0.4))
-    (prolog:<- (location-costmap:costmap-in-reach-distance 0.7))
+    (prolog:<- (location-costmap:costmap-manipulation-padding 0.35))
+    (prolog:<- (location-costmap:costmap-in-reach-distance 0.55))
     (prolog:<- (location-costmap:costmap-reach-minimal-distance 0.2))
     (prolog:<- (location-costmap:visibility-costmap-size 2))
     (prolog:<- (location-costmap:orientation-samples 2))
@@ -81,11 +81,17 @@
             (scene-setup execution-context))
     (mapcar (lambda (task)
               (mapcar #'desig:enable-location-generator-function (location-resolvers task))
+              (pp-plans::park-arms)
+              (prolog:prolog '(and (btr:bullet-world ?world)
+                                   (btr:simulate ?world 4)))
+              (exe:perform
+                (desig:a motion (type moving-torso) (joint-angle 0.3)))
               (exe:perform (task task))
               (mapcar #'desig:disable-location-generator-function (location-resolvers task)))
             (tasks execution-context))))
 
 (defun execute-context (execution-context)
-  (pr2-proj:with-simulated-robot
-    (execute-context-internal execution-context)))
+  (proj:with-projection-environment pr2-proj::pr2-bullet-projection-environment
+    (cpl-impl:top-level
+      (execute-context-internal execution-context))))
 

@@ -45,7 +45,7 @@
     (prolog:lisp-fun desig:desig-prop-value ?action-designator :instrument ?instrument-designator))
 
   (prolog:<- (desig:action-grounding ?action-designator (schematic-material-removal ?material-designator ?support-designator ?source-designator ?material-destination-designator ?support-destination-designator ?instrument-designator))
-    (spec:property ?action-designator (:type :schematic-transport))
+    (spec:property ?action-designator (:type :material-removal))
     (prolog:lisp-fun desig:desig-prop-value ?action-designator :material ?material-designator)
     (prolog:lisp-fun desig:desig-prop-value ?action-designator :objects ?support-designator)
     (prolog:lisp-fun desig:desig-prop-value ?action-designator :source ?source-designator)
