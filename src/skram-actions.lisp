@@ -53,6 +53,7 @@
 
 (cpl-impl:def-cram-function place-object-at-location (?robot ?arm ?object ?destination)
   (let* ((?object-name (desig:desig-prop-value ?object :name))
+         (?object-type (desig:desig-prop-value ?object :type)))
     (cpl-impl:with-failure-handling 
       ((common-fail:manipulation-pose-unreachable (e)
          (declare (ignore e))
