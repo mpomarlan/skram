@@ -38,6 +38,7 @@
 (defparameter *obj-masses* '((:cup . 0.2) (:plate . 0.4)))
 (defparameter *obj-colors* '((:cup . (1 0 0)) (:plate . (1 0 0))))
 (defparameter *obj-grasp-types* '((:cup . :top) (:plate . :right-side)))
+(defparameter *obj-grasping-arm* '((:cup . :right) (:plate . :right) (:tray :left :right)))
 
 (defparameter *CCG-Object-Type->CRAM-Object-Type* '(("slm-Cup" . :cup)
                                                     ("slm-Table" . :table)

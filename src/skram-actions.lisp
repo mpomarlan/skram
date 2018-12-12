@@ -29,6 +29,56 @@
 
 (in-package :skram)
 
+(cpl-impl:def-cram-function pick-located-object (?robot ?arm ?object)
+  (let* ((?object-name (desig:desig-prop-value ?object :name))
+         (?object-pose (bullet-pose (bullet-object btr:*current-bullet-world* ?object-name))))
+    (cpl-impl:with-failure-handling
+      ((common-fail:manipulation-pose-unreachable (e)
+         (declare (ignore e))
+         (cpl-impl:retry)))
+      (btr-utils:move-object ?robot
+                             (desig:reference (desig:a location (reachable-for ?robot)
+                                                                (arm ?arm)
+                                                                (location (desig:a location (pose ?object-pose))))))
+      (let* ((?object (car (localized-actee-at-source ?object nil)))
+             (dummy (exe:perform (desig:a motion
+                                          (type looking)
+                                          (target (desig:a location (pose ?object-pose))))))
+             (?perceived-object (pp-plans:perceive ?object)))
+        (declare (ignore dummy))
+        (exe:perform (desig:an action
+                               (type picking-up)
+                               (arm ?arm)
+                               (object ?perceived-object)))))))
+
+(cpl-impl:def-cram-function place-object-at-location (?robot ?arm ?object ?destination)
+  (let* ((?object-name (desig:desig-prop-value ?object :name))
+    (cpl-impl:with-failure-handling 
+      ((common-fail:manipulation-pose-unreachable (e)
+         (declare (ignore e))
+         (cpl-impl:retry))
+       (desig:designator-error (e)
+         (declare (ignore e))
+         (cpl-impl:retry)))
+      (let* ((?placing-location (desig:copy-designator ?destination :new-description `((:for ,(desig:an object (type ?object-type))))))
+             (?placing-pose (desig:reference ?placing-location))
+             (z-padding 0.04)
+             (?placing-pose (cl-tf:make-pose-stamped (cl-tf:frame-id ?placing-pose) (cl-tf:stamp ?placing-pose)
+                                                     (cl-tf:v+ (cl-tf:make-3d-vector 0 0 z-padding) (cl-tf:origin ?placing-pose))
+                                                     (cl-tf:orientation ?placing-pose))))
+             (btr-utils:move-object ?robot
+                                    (desig:reference (desig:a location (reachable-for ?robot)
+                                                                       (arm ?arm)
+                                                                       (location (desig:a location (pose ?placing-pose))))))
+             (let* ((?placing-pose (map-pose->footprint-pose ?placing-pose))
+                    (?placing-pose (cl-tf:make-pose-stamped (cl-tf:frame-id ?placing-pose) (cl-tf:stamp ?placing-pose)
+                                                            (cl-tf:origin ?placing-pose)
+                                                            (cl-tf:euler->quaternion))))
+               (exe:perform (desig:an action
+                                      (type placing)
+                                      (arm ?arm)
+                                      (target (desig:a location (pose ?placing-pose))))))))))
+
         ;; ground instrument and objects to transport, build-up a list
         ;; split list into: objects already on the instrument, objects yet to place there[, objects already transported]
         ;; while already-on-instrument and yet-to-place,
@@ -91,11 +141,16 @@
              (?actees-yet-to-place (first ?actees)))
         (schematic-gather ?actees-yet-to-gather ?actees-yet-to-place ?source-designator ?destination-designator ?instrument-designator))
       (mapcar (lambda (?actee)
-                (let* ((?destination-designator (desig:copy-designator ?destination-designator :new-description `((:for ,?actee)))))
-                  (exe:perform (desig:an action
-                                         (type transporting)
-                                         (object ?actee)
-                                         (target ?destination-designator)))))
+                (let* ((?destination-designator (desig:copy-designator ?destination-designator :new-description `((:for ,?actee))))
+                       (?arm (cdr (assoc (desig:desig-prop-value ?actee :type) *obj-grasping-arm*)))
+                       (?robot 'cram-pr2-description:pr2))
+                  (pick-located-object ?robot ?arm ?actee)
+                  (place-object-at-location ?robot ?arm ?actee ?destination-designator)
+                  ;(exe:perform (desig:an action
+                  ;                       (type transporting)
+                  ;                       (object ?actee)
+                  ;                       (target ?destination-designator)))
+                  ))
               ?actees))))
 
 (defun schematic-ingestion-internal (?container ?instrument-designator)
