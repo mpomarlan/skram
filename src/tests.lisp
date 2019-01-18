@@ -30,21 +30,33 @@
 (in-package :skram)
 
 
-(defparameter *test-pose-on-sink-table-1* (cl-tf:make-pose-stamped "map" 0 (cl-tf:make-3d-vector 1.42 0.6 0.863) (cl-tf:euler->quaternion)))
-(defparameter *test-pose-on-sink-table-2* (cl-tf:make-pose-stamped "map" 0 (cl-tf:make-3d-vector 1.44 0.3 0.863) (cl-tf:euler->quaternion)))
+(defparameter *test-pose-on-sink-table-1* (cl-tf:make-pose-stamped "map" 0 (cl-tf:make-3d-vector 1.33 0.8 0.863) (cl-tf:euler->quaternion)))
+(defparameter *test-pose-on-sink-table-2* (cl-tf:make-pose-stamped "map" 0 (cl-tf:make-3d-vector 1.33 0.3 0.863) (cl-tf:euler->quaternion)))
+(defparameter *test-pose-on-table-1* (cl-tf:make-pose-stamped "map" 0 (cl-tf:make-3d-vector -0.85 1.5 0.94) (cl-tf:euler->quaternion)))
+
+(defparameter *test-pose-on-main-table-1* (cl-tf:make-pose-stamped "map" 0 (cl-tf:make-3d-vector -1 -0.8 0.75) (cl-tf:euler->quaternion)))
+(defparameter *test-pose-on-main-table-2* (cl-tf:make-pose-stamped "map" 0 (cl-tf:make-3d-vector -1.15 -0.8 0.75) (cl-tf:euler->quaternion)))
 
 (defparameter *test-table* (desig:make-designator :object `((:type :table) (:part-of :kitchen) (:urdf-name :kitchen-island-surface) (:quantity :singular))))
 (defparameter *test-sink-table* (desig:make-designator :object `((:name (:kitchen :sink-area)) (:type :sink-table) (:part-of :kitchen) (:urdf-name :sink-area) (:quantity :singular))))
+(defparameter *test-main-table* (desig:make-designator :object `((:name (:kitchen :table-area-main)) (:type :main-table) (:part-of :kitchen) (:urdf-name :table-area-main) (:quantity :singular))))
 (defparameter *test-location-on-table* (desig:make-designator :location `((:on ,*test-table*) (:side :right))))
+(defparameter *test-location-on-table-1* (desig:make-designator :location `((:pose ,*test-pose-on-table-1*))))
 (defparameter *test-location-on-sink-table* (desig:make-designator :location `((:on ,*test-sink-table*))))
+(defparameter *test-location-on-main-table* (desig:make-designator :location `((:on ,*test-main-table*))))
 (defparameter *test-location-on-sink-table-1* (desig:make-designator :location `((:pose ,*test-pose-on-sink-table-1*))))
 (defparameter *test-location-on-sink-table-2* (desig:make-designator :location `((:pose ,*test-pose-on-sink-table-2*))))
+(defparameter *test-location-on-main-table-1* (desig:make-designator :location `((:pose ,*test-pose-on-main-table-1*))))
+(defparameter *test-location-on-main-table-2* (desig:make-designator :location `((:pose ,*test-pose-on-main-table-2*))))
 (defparameter *test-plate-on-table-1* (desig:make-designator :object `((:type :plate) (:at ,(desig:copy-designator *test-location-on-table*)))))
 (defparameter *test-plate-on-table-2* (desig:make-designator :object `((:type :plate) (:at ,(desig:copy-designator *test-location-on-table*)))))
 (defparameter *test-plate-on-sink-table-1* (desig:make-designator :object `((:type :plate) (:at ,(desig:copy-designator *test-location-on-sink-table-1*)))))
 (defparameter *test-plate-on-sink-table-2* (desig:make-designator :object `((:type :plate) (:at ,(desig:copy-designator *test-location-on-sink-table-2*)))))
 (defparameter *test-cup-on-sink-table-1* (desig:make-designator :object `((:type :cup) (:at ,(desig:copy-designator *test-location-on-sink-table-1*)))))
 (defparameter *test-cup-on-sink-table-2* (desig:make-designator :object `((:type :cup) (:at ,(desig:copy-designator *test-location-on-sink-table-2*)))))
+(defparameter *test-cup-on-main-table-1* (desig:make-designator :object `((:type :cup) (:at ,(desig:copy-designator *test-location-on-main-table-1*)))))
+(defparameter *test-cup-on-main-table-2* (desig:make-designator :object `((:type :cup) (:at ,(desig:copy-designator *test-location-on-main-table-2*)))))
+(defparameter *test-tray-on-table-1* (desig:make-designator :object `((:type :tray) (:at ,(desig:copy-designator *test-location-on-table-1*)))))
 
 
 (defparameter *test-eating* (make-instance 'execution-context
@@ -75,28 +87,29 @@
                                                                                   (:material-destination nil)))))))
 
 (defparameter *test-transporting* (make-instance 'execution-context
-                                                 :scene-setup (list *test-cup-on-sink-table-1*
-                                                                    *test-cup-on-sink-table-2*)
+                                                 :scene-setup (list *test-cup-on-main-table-1*
+                                                                    *test-cup-on-main-table-2*)
                                                  :tasks (list (make-instance 'task-context
                                                                              :location-resolvers nil
                                                                              :task (desig:make-designator
                                                                                      :action
                                                                                      `((:type :schematic-transport)
                                                                                        (:objects ,(desig:make-designator :object '((:type :cup) (:quantity :plural))))
-                                                                                       (:source ,*test-location-on-sink-table*)
+                                                                                       (:source ,*test-location-on-main-table*)
                                                                                        (:instrument nil)
                                                                                        (:destination ,*test-location-on-table*)))))))
 
 (defparameter *test-transporting-tray* (make-instance 'execution-context
-                                                 :scene-setup (list *test-cup-on-sink-table-1*
-                                                                    *test-cup-on-sink-table-2*)
+                                                 :scene-setup (list *test-cup-on-main-table-1*
+                                                                    *test-cup-on-main-table-2*
+                                                                    *test-tray-on-table-1*)
                                                  :tasks (list (make-instance 'task-context
                                                                              :location-resolvers nil
                                                                              :task (desig:make-designator
                                                                                      :action
                                                                                      `((:type :schematic-transport)
                                                                                        (:objects ,(desig:make-designator :object '((:type :cup) (:quantity :plural))))
-                                                                                       (:source ,*test-location-on-sink-table*)
-                                                                                       (:instrument nil)
+                                                                                       (:source ,*test-location-on-main-table*)
+                                                                                       (:instrument ,(desig:make-designator :object '((:type :tray) (:quantity :singular))))
                                                                                        (:destination ,*test-location-on-table*)))))))
 

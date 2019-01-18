@@ -35,10 +35,11 @@
                              (:table . :kitchen-island-surface)))
 (defparameter *owl-names* nil)
 
-(defparameter *obj-masses* '((:cup . 0.2) (:plate . 0.4)))
-(defparameter *obj-colors* '((:cup . (1 0 0)) (:plate . (1 0 0))))
-(defparameter *obj-grasp-types* '((:cup . :top) (:plate . :right-side)))
-(defparameter *obj-grasping-arm* '((:cup . :right) (:plate . :right) (:tray :left :right)))
+(defparameter *obj-masses* '((:cup . 0.2) (:plate . 0.4) (:tray . 0.6)))
+(defparameter *obj-colors* '((:cup . (1 0 0)) (:plate . (1 0 0)) (:tray . (1 0 0))))
+(defparameter *obj-grasp-types* '((:cup . :top) (:plate . :right-side) (:tray . :top)))
+(defparameter *obj-grasp-arm* '((:tray . :right)))
+(defparameter *obj-type-grasps* '((:tray (:right :top)) (:cup (:right :top) (:left :top)) (:plate (:left :left-side) (:right :right-side))))
 
 (defparameter *CCG-Object-Type->CRAM-Object-Type* '(("slm-Cup" . :cup)
                                                     ("slm-Table" . :table)
@@ -94,6 +95,24 @@
     ((typep object 'btr:robot-object)
       (cl-tf:ensure-pose-stamped (btr:pose (gethash "base_footprint" (btr:links object))) "map" 0))))
 
+(defun object-handle-poses (object-name object-type)
+  (let* ((object-location (bullet-pose object-name))
+         (object-location (cl-tf:make-transform-stamped "map" "obj" 0
+                                                        (cl-tf:origin object-location)
+                                                        (cl-tf:orientation object-location)))
+         (grasps (cdr (assoc object-type *obj-type-grasps*))))
+    (cons 
+      (bullet-pose object-name)
+      (mapcar (lambda (grasp)
+                (let* ((arm (first grasp))
+                       (grasp (second grasp))
+                       (obj-gr (cram-object-interfaces:get-object-type-to-gripper-transform object-type object-name arm grasp))
+                       (handle-location (cl-tf:transform* object-location obj-gr)))
+                  (cl-tf:make-pose-stamped "map" 0
+                                           (cl-tf:translation handle-location)
+                                           (cl-tf:rotation handle-location))))
+              grasps))))
+
 (defmethod desig:resolve-designator ((desig desig:object-designator) (role (eql :add-name)))
   (let* ((type (desig:desig-prop-value desig :type))
          (name (desig:desig-prop-value desig :name))
@@ -146,3 +165,82 @@
   :2nd-pregrasp-offsets `(0.0 ,(- kr-pp::*plate-pregrasp-y-offset*) ,kr-pp::*plate-2nd-pregrasp-z-offset*)
   :lift-offsets kr-pp::*lift-offset*
   :2nd-lift-offsets kr-pp::*lift-offset*)
+
+(cram-object-interfaces:def-object-type-to-gripper-transforms :tray :right :top
+  :grasp-translation `(0.0 0.2 0.035)
+  :grasp-rot-matrix
+  `(( 0 0 1)
+    ( 0 1 0)
+    ( -1 0 0))
+  :pregrasp-offsets `(0.0 0.0 0.05)
+  :2nd-pregrasp-offsets `(0.0 0.0 0.1)
+  :lift-offsets kr-pp::*lift-offset*
+  :2nd-lift-offsets kr-pp::*lift-offset*)
+
+;(cram-object-interfaces:def-object-type-to-gripper-transforms :tray :left :top
+;  :grasp-translation `(0.0 -0.2 0.035)
+;  :grasp-rot-matrix
+;  `(( 0 0 1)
+;    ( 0 1 0)
+;    ( -1 0 0))
+;  :pregrasp-offsets `(0.0 0.0 0.05)
+;  :2nd-pregrasp-offsets `(0.0 0.0 0.1)
+;  :lift-offsets kr-pp::*lift-offset*
+;  :2nd-lift-offsets kr-pp::*lift-offset*)
+
+;(defmethod obj-int:get-object-type-to-gripper-transform ((object-type (eql :tray)) object-name (arm (eql :right))
+;                                           (grasp (eql :right-side)))
+;  (cl-tf:make-transform-stamped "" "" 0
+;                                ()
+;                                ()))
+
+(defmethod obj-int:get-object-grasping-poses (object-name (object-type (eql :tray)) arm (grasp (eql :top)) object-transform)
+    (declare (type symbol object-name object-type arm grasp)
+             (type cl-transforms-stamped:transform-stamped object-transform))
+    (let* ((object-to-left-handle (cl-tf:make-transform-stamped (cl-tf:frame-id object-transform) "left_handle" 0
+                                                                (cl-tf:make-3d-vector 0 0.203 0.02)
+                                                                (cl-tf:euler->quaternion)))
+           (object-to-right-handle (cl-tf:make-transform-stamped (cl-tf:frame-id object-transform) "right_handle" 0
+                                                                 (cl-tf:make-3d-vector 0 -0.203 0.02)
+                                                                 (cl-tf:euler->quaternion)))
+           (naive-footprint-to-left-handle (cl-tf:transform* object-transform object-to-left-handle))
+           (naive-footprint-to-right-handle (cl-tf:transform* object-transform object-to-right-handle))
+           (footprint-to-left-handle (if (< 0 (cl-tf:y (cl-tf:translation naive-footprint-to-left-handle))) naive-footprint-to-left-handle naive-footprint-to-right-handle))
+           (footprint-to-right-handle (if (> 0 (cl-tf:y (cl-tf:translation naive-footprint-to-right-handle))) naive-footprint-to-right-handle naive-footprint-to-left-handle))
+           (footprint-to-handle (ecase arm (:left footprint-to-left-handle) (:right footprint-to-right-handle)))
+           (footprint-to-handle (cl-tf:copy-transform footprint-to-handle
+                                                      :rotation (cl-transforms:make-identity-rotation)))
+           (footprint-to-gripper (cl-tf:transform* footprint-to-handle (cl-tf:make-transform (cl-tf:make-3d-vector 0 0 0) (cl-tf:euler->quaternion :ay (/ pi 2)))))
+           (footprint-to-pregripper (cl-tf:transform* (cl-tf:make-transform (cl-tf:make-3d-vector 0 0 0.06) (cl-tf:euler->quaternion)) footprint-to-gripper))
+           (footprint-to-pregripper2 (cl-tf:transform* (cl-tf:make-transform (cl-tf:make-3d-vector 0 0 0.12) (cl-tf:euler->quaternion)) footprint-to-gripper))
+           )
+      (mapcar (lambda (tr)
+                (cl-tf:make-pose-stamped (cl-tf:frame-id object-transform) 0
+                                         (cl-tf:translation tr)
+                                         (cl-tf:rotation tr)))
+              (list footprint-to-pregripper footprint-to-pregripper2 footprint-to-gripper footprint-to-pregripper footprint-to-pregripper2))))
+
+
+(defun tray-on-location (relatum)
+  (let* ((relatum (desig:desig-prop-value relatum :urdf-name)))
+    (ecase relatum
+      (:table-area-main
+        (cl-tf:make-pose-stamped "map" 0
+                                 (cl-tf:make-3d-vector -1.7 -0.797 0.7327)
+                                 (cl-tf:euler->quaternion :az (/ pi 2))))
+      (:kitchen-island-surface
+        (cl-tf:make-pose-stamped "map" 0
+                                 (cl-tf:make-3d-vector -0.8 1.5 0.94)
+                                 (cl-tf:euler->quaternion)))
+      (:sink-area
+        (cl-tf:make-pose-stamped "map" 0
+                                 (cl-tf:make-3d-vector 1.42 0.6 0.863)
+                                 (cl-tf:euler->quaternion :az pi))))))
+
+(prolog:def-fact-group tray-on-locations (desig:location-grounding)
+  (prolog:<- (desig:location-grounding ?desig ?solution)
+    (desig:desig-prop ?desig (:for ?for-object))
+    (desig:desig-prop ?for-object (:type :tray))
+    (desig:desig-prop ?desig (:on ?relatum))
+    (prolog:lisp-fun tray-on-location ?relatum ?solution))
+  )
