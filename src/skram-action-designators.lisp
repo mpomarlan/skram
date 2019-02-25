@@ -31,6 +31,10 @@
 
 (prolog:def-fact-group skram-actions (desig:action-grounding)
 
+  (prolog:<- (desig:action-grounding ?action-designator (infiltrate ?target-designator))
+    (spec:property ?action-designator (:type :infiltrate))
+    (prolog:lisp-fun desig:desig-prop-value ?action-designator :target ?target-designator))
+
   (prolog:<- (desig:action-grounding ?action-designator (schematic-transport ?actee-designator ?source-designator ?destination-designator ?instrument-designator))
     (spec:property ?action-designator (:type :schematic-transport))
     (prolog:lisp-fun desig:desig-prop-value ?action-designator :objects ?actee-designator)
