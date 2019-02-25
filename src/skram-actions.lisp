@@ -37,19 +37,23 @@
     (cpl-impl:with-failure-handling
       ((common-fail:manipulation-pose-unreachable (e)
          (declare (ignore e))
+         (pp-plans:park-arms)
          (cpl-impl:retry))
        (desig:designator-error (e)
          (setf object-handle-poses (cdr object-handle-poses))
          (unless object-handle-poses
            (cpl-impl:fail e))
+         (pp-plans:park-arms)
          (cpl-impl:retry)))
       (let* ((?handle-pose (car object-handle-poses)))
         (format t "Moving to grab handle at pose ~a~%" ?handle-pose)
-        (btr-utils:move-object ?robot
-                               (desig:reference (desig:a location
-                                                         (reachable-for pr2)
-                                                         (arm ?arm)
-                                                         (location (desig:a location (pose ?handle-pose)))))))
+        (cpl-impl:with-failure-handling
+          ((common-fail:navigation-pose-unreachable (e)
+             (declare (ignore e))
+             (cpl-impl:retry)))
+          (let* ((?go-pose (desig:reference (desig:a location (reachable-for pr2) (arm ?arm) (location (desig:a location (pose ?handle-pose)))))))
+            (exe:perform (desig:an action (type going) (target (desig:a location (pose ?go-pose)))))))
+        )
       (format t "Looking toward pose ~a~%" ?object-pose)
       (let* ((?object (car (localized-actee-at-source ?object nil)))
              (dummy (exe:perform (desig:a motion
@@ -63,7 +67,17 @@
         (exe:perform (desig:an action
                                (type picking-up)
                                (arm ?arm)
-                               (object ?perceived-object)))))))
+                               (object ?perceived-object))))))
+    (let* ((?lt (cl-tf:make-pose-stamped "base_footprint" 0
+                                         (cl-tf:make-3d-vector 0.4 0.4 1.5)
+                                         (cl-tf:euler->quaternion)))
+           (?rt (cl-tf:make-pose-stamped "base_footprint" 0
+                                         (cl-tf:make-3d-vector 0.4 -0.4 1.5)
+                                         (cl-tf:euler->quaternion))))
+      (exe:perform (desig:a motion
+                            (type moving-tcp)
+                            (right-target (desig:a location (pose ?rt)))
+                            (left-target (desig:a location (pose ?lt)))))))
 
 (defun safe-place (?robot ?arm ?object ?destination)
   (let* ((?object-name (desig:desig-prop-value ?object :name))
@@ -76,27 +90,31 @@
        (desig:designator-error (e)
          (declare (ignore e))
          (cpl-impl:retry)))
-      (let* ((?placing-location (desig:copy-designator ?destination :new-description `((:for ,(desig:an object (type ?object-type) (name ?object-name))))))
+      (let* ((retries 10)
+             (?placing-location (desig:copy-designator ?destination :new-description `((:for ,(desig:an object (type ?object-type) (name ?object-name))))))
              (dummy (format t "PLACING LOCATION ~a~%" ?placing-location))
              (?placing-pose (if (eql (desig:desig-prop-value ?object :type) :tray) (tray-on-location (desig:desig-prop-value ?destination :on)) (desig:reference ?placing-location)))
              (?placing-pose (cl-tf:make-pose-stamped (cl-tf:frame-id ?placing-pose) (cl-tf:stamp ?placing-pose)
-                                                     (cl-tf:v+ (cl-tf:make-3d-vector 0 0 0.2) (cl-tf:origin ?placing-pose))
+                                                     (cl-tf:v+ (cl-tf:make-3d-vector 0 0 0.02) (cl-tf:origin ?placing-pose))
                                                      (cl-tf:orientation ?placing-pose))))
-        (format t "Will now move robot~%")
-        (btr-utils:move-object ?robot
-                               (desig:reference (desig:a location
-                                                         (reachable-for pr2)
-                                                         (arm ?arm)
-                                                         (location (desig:a location (pose ?placing-pose))))))
-        (let* ((?placing-pose (map-pose->footprint-pose ?placing-pose))
-               (?placing-pose (cl-tf:make-pose-stamped (cl-tf:frame-id ?placing-pose) (cl-tf:stamp ?placing-pose)
-                                                       (cl-tf:origin ?placing-pose)
-                                                       (cl-tf:euler->quaternion))))
-        (format t "Will now place at ~a~%" ?placing-pose)
+        (cpl-impl:with-failure-handling
+          ((common-fail:navigation-pose-unreachable (e)
+             (declare (ignore e))
+             (setf retries (- retries 1))
+             (if (< 0 retries)
+               (cpl-impl:retry)
+               (cpl-impl:fail 'desig:designator-error))))
+          (let* ((?go-pose (desig:reference (desig:a location (reachable-for pr2) (arm ?arm) (location (desig:a location (pose ?placing-pose)))))))
+            (exe:perform (desig:an action (type going) (target (desig:a location (pose ?go-pose)))))))
+
+        (let* ((?placing-pose ?placing-pose)
+               )
+        (format t "Will now place at ~a~%" (cl-tf:transform-pose cram-tf:*transformer* :pose ?placing-pose :target-frame "map"))
           (exe:perform (desig:an action
                                  (type placing)
                                  (arm ?arm)
                                  (target (desig:a location (pose ?placing-pose)))))
+        (prolog:prolog `(btr:simulate ,btr:*current-bullet-world* 10))
           )))))
 
         ;; ground instrument and objects to transport, build-up a list

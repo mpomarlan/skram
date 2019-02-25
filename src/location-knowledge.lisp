@@ -29,7 +29,7 @@
 
 (in-package :skram)
 
-(setf desig::*location-generator-max-retries* 500)
+(setf desig::*location-generator-max-retries* 25)
 
 (defun interpret-spatial-relation (?designator &optional (role :manipulation-location))
   (cond
