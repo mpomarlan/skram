@@ -45,10 +45,10 @@
     (prolog:<- (location-costmap:costmap-resolution 0.04))
     (prolog:<- (location-costmap:costmap-padding 0.3))
     (prolog:<- (location-costmap:costmap-manipulation-padding 0.35))
-    (prolog:<- (location-costmap:costmap-in-reach-distance 0.55))
-    (prolog:<- (location-costmap:costmap-reach-minimal-distance 0.2))
+    (prolog:<- (location-costmap:costmap-in-reach-distance 1.0))
+    (prolog:<- (location-costmap:costmap-reach-minimal-distance 0.15))
     (prolog:<- (location-costmap:visibility-costmap-size 2))
-    (prolog:<- (location-costmap:orientation-samples 2))
+    (prolog:<- (location-costmap:orientation-samples 4))
     (prolog:<- (location-costmap:orientation-sample-step 0.1)))
 
   (setf cram-bullet-reasoning-belief-state:*robot-parameter* "robot_description")
