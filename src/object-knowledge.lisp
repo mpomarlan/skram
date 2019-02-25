@@ -35,11 +35,13 @@
                              (:table . :kitchen-island-surface)))
 (defparameter *owl-names* nil)
 
-(defparameter *obj-masses* '((:cup . 0.2) (:plate . 0.4) (:tray . 0.6)))
-(defparameter *obj-colors* '((:cup . (1 0 0)) (:plate . (1 0 0)) (:tray . (1 0 0))))
+(defparameter *obj-masses* '((:pot . 1.0) (:spatula . 0.4) (:fork . 0.1) (:cup . 0.2) (:plate . 0.4) (:tray . 0.6)))
+(defparameter *obj-colors* '((:pot . (1 0 0)) (:spatula . (1 0 0)) (:fork . (1 0 0)) (:cup . (1 0 0)) (:plate . (1 0 0)) (:tray . (1 0 0))))
 (defparameter *obj-grasp-types* '((:cup . :top) (:plate . :right-side) (:tray . :top)))
 (defparameter *obj-grasp-arm* '((:tray . :right)))
 (defparameter *obj-type-grasps* '((:tray (:right :top)) (:cup (:right :top) (:left :top)) (:plate (:left :left-side) (:right :right-side))))
+
+(defparameter *obj-type-height* '((:pot . 0.168325) (:plate . 0.027733) (:cup . 0.094399) (:tray . 0.050063) (:fork . 0.026703)))
 
 (defparameter *CCG-Object-Type->CRAM-Object-Type* '(("slm-Cup" . :cup)
                                                     ("slm-Table" . :table)
@@ -198,10 +200,10 @@
     (declare (type symbol object-name object-type arm grasp)
              (type cl-transforms-stamped:transform-stamped object-transform))
     (let* ((object-to-left-handle (cl-tf:make-transform-stamped (cl-tf:frame-id object-transform) "left_handle" 0
-                                                                (cl-tf:make-3d-vector 0 0.203 0.02)
+                                                                (cl-tf:make-3d-vector -0.02 0.203 0.02)
                                                                 (cl-tf:euler->quaternion)))
            (object-to-right-handle (cl-tf:make-transform-stamped (cl-tf:frame-id object-transform) "right_handle" 0
-                                                                 (cl-tf:make-3d-vector 0 -0.203 0.02)
+                                                                 (cl-tf:make-3d-vector -0.02 -0.203 0.02)
                                                                  (cl-tf:euler->quaternion)))
            (naive-footprint-to-left-handle (cl-tf:transform* object-transform object-to-left-handle))
            (naive-footprint-to-right-handle (cl-tf:transform* object-transform object-to-right-handle))
@@ -210,7 +212,7 @@
            (footprint-to-handle (ecase arm (:left footprint-to-left-handle) (:right footprint-to-right-handle)))
            (footprint-to-handle (cl-tf:copy-transform footprint-to-handle
                                                       :rotation (cl-transforms:make-identity-rotation)))
-           (footprint-to-gripper (cl-tf:transform* footprint-to-handle (cl-tf:make-transform (cl-tf:make-3d-vector 0 0 0) (cl-tf:euler->quaternion :ay (/ pi 2)))))
+           (footprint-to-gripper (cl-tf:transform* footprint-to-handle (cl-tf:make-transform (cl-tf:make-3d-vector 0 0 0) (cl-tf:euler->quaternion))))
            (footprint-to-pregripper (cl-tf:transform* (cl-tf:make-transform (cl-tf:make-3d-vector 0 0 0.06) (cl-tf:euler->quaternion)) footprint-to-gripper))
            (footprint-to-pregripper2 (cl-tf:transform* (cl-tf:make-transform (cl-tf:make-3d-vector 0 0 0.12) (cl-tf:euler->quaternion)) footprint-to-gripper))
            )
@@ -218,7 +220,7 @@
                 (cl-tf:make-pose-stamped (cl-tf:frame-id object-transform) 0
                                          (cl-tf:translation tr)
                                          (cl-tf:rotation tr)))
-              (list footprint-to-pregripper footprint-to-pregripper2 footprint-to-gripper footprint-to-pregripper footprint-to-pregripper2))))
+              (list footprint-to-pregripper footprint-to-pregripper2 footprint-to-gripper footprint-to-pregripper2 footprint-to-pregripper))))
 
 
 (defun tray-on-location (relatum)
@@ -226,11 +228,15 @@
     (ecase relatum
       (:table-area-main
         (cl-tf:make-pose-stamped "map" 0
-                                 (cl-tf:make-3d-vector -1.7 -0.797 0.7327)
+                                 (cl-tf:make-3d-vector -1.7 -0.77 0.7327)
                                  (cl-tf:euler->quaternion :az (/ pi 2))))
+      (:kitchen-island
+        (cl-tf:make-pose-stamped "map" 0
+                                 (cl-tf:make-3d-vector -0.65 1.5 0.94)
+                                 (cl-tf:euler->quaternion)))
       (:kitchen-island-surface
         (cl-tf:make-pose-stamped "map" 0
-                                 (cl-tf:make-3d-vector -0.8 1.5 0.94)
+                                 (cl-tf:make-3d-vector -0.65 1.5 0.94)
                                  (cl-tf:euler->quaternion)))
       (:sink-area
         (cl-tf:make-pose-stamped "map" 0
