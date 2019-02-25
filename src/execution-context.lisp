@@ -96,3 +96,32 @@
     (cpl-impl:top-level
       (execute-context-internal execution-context))))
 
+;; TODO: this is a hack, get this function integrated into the above
+(defun execute-item-context-internal (execution-context)
+  (cpl-impl:with-failure-handling
+    ((cpl-impl:plan-failure (e)
+      (declare (ignore e))
+      (return)))
+    (mapcar (lambda (obj-desig)
+              (add-object-at-designator btr:*current-bullet-world* obj-desig))
+            (scene-setup execution-context))
+    (mapcar (lambda (task)
+              (mapcar #'desig:enable-location-generator-function (location-resolvers task))
+              (exe:perform (task task))
+              (mapcar #'desig:disable-location-generator-function (location-resolvers task)))
+            (tasks execution-context))))
+
+(defun execute-item-context (execution-context)
+  (prolog:prolog '(btr:clear-bullet-world))
+  (cram-occasions-events:clear-belief)
+  (let* ((start (roslisp:ros-time))
+         (?timeline (proj:with-projection-environment pr2-proj::pr2-bullet-projection-environment
+                      (cpl-impl:top-level
+                        (execute-item-context-internal execution-context))))
+         (query-result (prolog:prolog (prolog-query execution-context)))
+         (end (roslisp:ros-time)))
+    (list (- end start)
+          (when query-result
+            T)
+          ?timeline)))
+
