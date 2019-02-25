@@ -42,6 +42,7 @@
     #:execution-context
     #:scene-setup
     #:tasks
+    #:prolog-query
     #:task
     #:location-resolvers
    ))

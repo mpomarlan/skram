@@ -35,7 +35,8 @@
 
 (defclass execution-context ()
   ((scene-setup :initarg :scene-setup :initform nil :reader scene-setup)
-   (tasks :initarg :tasks :initform nil :reader tasks)))
+   (tasks :initarg :tasks :initform nil :reader tasks)
+   (prolog-query :initarg :prolog-query :initform nil :reader prolog-query)))
 
 (defun init-projection ()
   (prolog:def-fact-group costmap-metadata ()
